@@ -39,29 +39,63 @@ typename pcl::PointCloud<PointT>::Ptr ProcessPointClouds<PointT>::FilterCloud(ty
 
 
 template<typename PointT>
-std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> ProcessPointClouds<PointT>::SeparateClouds(pcl::PointIndices::Ptr inliers, typename pcl::PointCloud<PointT>::Ptr cloud) 
-{
-  // TODO: Create two new point clouds, one cloud with obstacles and other with segmented plane
+std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> ProcessPointClouds<PointT>::SeparateClouds(
+        const pcl::PointIndices::Ptr& inliers, const typename pcl::PointCloud<PointT>::Ptr& cloud) {
+  // Create two new point clouds, one cloud with obstacles and other with segmented plane
+    typename pcl::PointCloud<PointT>::Ptr obstacle_cloud(new pcl::PointCloud<PointT>());
+    typename pcl::PointCloud<PointT>::Ptr plane_cloud(new pcl::PointCloud<PointT>());
 
-    std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> segResult(cloud, cloud);
+    // Copy inliers point cloud as plane
+    for (int index : inliers->indices) {
+        plane_cloud->points.push_back(cloud->points[index]);
+    }
+
+    // Create the filtering object
+    pcl::ExtractIndices<PointT> extract;
+    // Extract the inliers so that we can get obstacles point cloud
+    extract.setInputCloud(cloud);
+    extract.setIndices(inliers);
+    extract.setNegative(true);
+    extract.filter(*obstacle_cloud);
+
+    std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> segResult(obstacle_cloud, plane_cloud);
     return segResult;
 }
 
 
 // Use the pair object to hold your segmented results for the obstacle point cloud and the road point cloud
 template<typename PointT>
-std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> ProcessPointClouds<PointT>::SegmentPlane(typename pcl::PointCloud<PointT>::Ptr cloud, int maxIterations, float distanceThreshold)
+std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> ProcessPointClouds<PointT>::SegmentPlane(const typename pcl::PointCloud<PointT>::Ptr& cloud, int maxIterations, float distanceThreshold)
 {
     // Time segmentation process
     auto startTime = std::chrono::steady_clock::now();
-	pcl::PointIndices::Ptr inliers;
-    // TODO:: Fill in this function to find inliers for the cloud.
+
+	/*** Find inliers for the cloud. ***/
+    // Create the segmentation object
+    pcl::SACSegmentation<PointT> seg;
+    pcl::PointIndices::Ptr inliers(new pcl::PointIndices());
+    pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients());
+
+    // Optional
+    seg.setOptimizeCoefficients(true);
+    // Mandatory
+    seg.setModelType(pcl::SACMODEL_PLANE);
+    seg.setMethodType(pcl::SAC_RANSAC);
+    seg.setMaxIterations(maxIterations);
+    seg.setDistanceThreshold(distanceThreshold);
+
+    // Segment the largest planar component from the input cloud
+    seg.setInputCloud(cloud);
+    seg.segment(*inliers, *coefficients);
+    if (inliers->indices.empty()) {
+        std::cerr << "Could not estimate a planar model for the given dataset" << std::endl;
+    }
 
     auto endTime = std::chrono::steady_clock::now();
     auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
     std::cout << "plane segmentation took " << elapsedTime.count() << " milliseconds" << std::endl;
 
-    std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> segResult = SeparateClouds(inliers,cloud);
+    std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> segResult = SeparateClouds(inliers, cloud);
     return segResult;
 }
 
@@ -114,17 +148,14 @@ void ProcessPointClouds<PointT>::savePcd(typename pcl::PointCloud<PointT>::Ptr c
 
 
 template<typename PointT>
-typename pcl::PointCloud<PointT>::Ptr ProcessPointClouds<PointT>::loadPcd(std::string file)
-{
+typename pcl::PointCloud<PointT>::Ptr ProcessPointClouds<PointT>::loadPcd(std::string file) {
+    typename pcl::PointCloud<PointT>::Ptr cloud(new pcl::PointCloud<PointT>);
 
-    typename pcl::PointCloud<PointT>::Ptr cloud (new pcl::PointCloud<PointT>);
-
-    if (pcl::io::loadPCDFile<PointT> (file, *cloud) == -1) //* load the file
-    {
+    //load the pcd file
+    if (-1 == pcl::io::loadPCDFile<PointT> (file, *cloud)) {
         PCL_ERROR ("Couldn't read file \n");
     }
-    std::cerr << "Loaded " << cloud->points.size () << " data points from "+file << std::endl;
-
+    std::cout << "Loaded " << cloud->points.size() << " data points from " + file << std::endl;
     return cloud;
 }
 

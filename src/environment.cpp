@@ -2,19 +2,22 @@
 // Create simple 3d highway environment using PCL
 // for exploring self-driving car sensors
 
+/**
+ * Developer: Yasen Hu
+ * Date: 05/25/2019
+ */
+
 #include "sensors/lidar.h"
 #include "render/render.h"
 #include "processPointClouds.h"
 // using templates for processPointClouds so also include .cpp to help linker
 #include "processPointClouds.cpp"
 
-std::vector<Car> initHighway(bool renderScene, pcl::visualization::PCLVisualizer::Ptr& viewer)
-{
-
-    Car egoCar( Vect3(0,0,0), Vect3(4,2,2), Color(0,1,0), "egoCar");
-    Car car1( Vect3(15,0,0), Vect3(4,2,2), Color(0,0,1), "car1");
-    Car car2( Vect3(8,-4,0), Vect3(4,2,2), Color(0,0,1), "car2");	
-    Car car3( Vect3(-12,4,0), Vect3(4,2,2), Color(0,0,1), "car3");
+std::vector<Car> initHighway(bool renderScene, pcl::visualization::PCLVisualizer::Ptr& viewer) {
+    Car egoCar(Vect3(0,0,0), Vect3(4,2,2), Color(0,1,0), "egoCar");
+    Car car1(Vect3(15,0,0), Vect3(4,2,2), Color(0,0,1), "car1");
+    Car car2(Vect3(8,-4,0), Vect3(4,2,2), Color(0,0,1), "car2");
+    Car car3(Vect3(-12,4,0), Vect3(4,2,2), Color(0,0,1), "car3");
   
     std::vector<Car> cars;
     cars.push_back(egoCar);
@@ -22,8 +25,7 @@ std::vector<Car> initHighway(bool renderScene, pcl::visualization::PCLVisualizer
     cars.push_back(car2);
     cars.push_back(car3);
 
-    if(renderScene)
-    {
+    if(renderScene) {
         renderHighway(viewer);
         egoCar.render(viewer);
         car1.render(viewer);
@@ -35,14 +37,13 @@ std::vector<Car> initHighway(bool renderScene, pcl::visualization::PCLVisualizer
 }
 
 
-void simpleHighway(pcl::visualization::PCLVisualizer::Ptr& viewer)
-{
+void simpleHighway(pcl::visualization::PCLVisualizer::Ptr& viewer) {
     // ----------------------------------------------------
     // -----Open 3D viewer and display simple highway -----
     // ----------------------------------------------------
     
     // RENDER OPTIONS
-    bool renderScene = true;
+    bool renderScene = false;
     std::vector<Car> cars = initHighway(renderScene, viewer);
     
     // Create LiDAR sensor
@@ -50,27 +51,35 @@ void simpleHighway(pcl::visualization::PCLVisualizer::Ptr& viewer)
     std::shared_ptr<Lidar> lidar_ptr = std::make_shared<Lidar>(cars, kGroundSlope);
     auto input_cloud = lidar_ptr->scan();
 //    renderRays(viewer, lidar_ptr->position, input_cloud);
-    renderPointCloud(viewer, input_cloud, "InputCloud");
+//    renderPointCloud(viewer, input_cloud, "InputCloud");
 
     // Create point processor
     ProcessPointClouds<pcl::PointXYZ> point_cloud_processor;
-  
+    const int kMaxIterations = 100;
+    constexpr float kDistanceThreshold = 0.2;
+    auto segment_cloud = point_cloud_processor.SegmentPlane(input_cloud, kMaxIterations, kDistanceThreshold);
+
+    // render obstacles point cloud with red
+    renderPointCloud(viewer, segment_cloud.first, "ObstacleCloud", Color(1, 0, 0));
+    // render ground plane with green
+    renderPointCloud(viewer, segment_cloud.second, "GroundCloud", Color(0, 1, 0));
 }
 
 
-//setAngle: SWITCH CAMERA ANGLE {XY, TopDown, Side, FPS}
-void initCamera(CameraAngle setAngle, pcl::visualization::PCLVisualizer::Ptr& viewer)
-{
+void cityBlock(pcl::visualization::PCLVisualizer::Ptr& viewer, const ProcessPointClouds<pcl::PointXYZI>& point_cloud_processor, const pcl::PointCloud<pcl::PointXYZI>::Ptr& input_cloud) {
+    renderPointCloud(viewer, input_cloud, "InputCloud");
+}
 
-    viewer->setBackgroundColor (0, 0, 0);
+//setAngle: SWITCH CAMERA ANGLE {XY, TopDown, Side, FPS}
+void initCamera(CameraAngle setAngle, pcl::visualization::PCLVisualizer::Ptr& viewer) {
+    viewer->setBackgroundColor(0, 0, 0);
     
     // set camera position and angle
     viewer->initCameraParameters();
     // distance away in meters
     int distance = 16;
     
-    switch(setAngle)
-    {
+    switch(setAngle) {
         case XY : viewer->setCameraPosition(-distance, -distance, distance, 1, 1, 0); break;
         case TopDown : viewer->setCameraPosition(0, 0, distance, 1, 0, 1); break;
         case Side : viewer->setCameraPosition(0, -distance, 0, 0, 0, 1); break;
@@ -78,21 +87,40 @@ void initCamera(CameraAngle setAngle, pcl::visualization::PCLVisualizer::Ptr& vi
     }
 
     if(setAngle!=FPS)
-        viewer->addCoordinateSystem (1.0);
+        viewer->addCoordinateSystem(1.0);
 }
 
 
-int main (int argc, char** argv)
-{
-    std::cout << "starting enviroment" << std::endl;
+int main (int argc, char** argv) {
+    std::cout << "starting environment" << std::endl;
 
-    pcl::visualization::PCLVisualizer::Ptr viewer (new pcl::visualization::PCLVisualizer ("3D Viewer"));
+    pcl::visualization::PCLVisualizer::Ptr viewer(new pcl::visualization::PCLVisualizer ("3D Viewer"));
     CameraAngle setAngle = XY;
     initCamera(setAngle, viewer);
-    simpleHighway(viewer);
+//    simpleHighway(viewer);
+//    while (!viewer->wasStopped()) {
+//        viewer->spinOnce();
+//    }
 
-    while (!viewer->wasStopped ())
-    {
-        viewer->spinOnce ();
+    ProcessPointClouds<pcl::PointXYZI> point_cloud_processor;
+    std::vector<boost::filesystem::path> stream = point_cloud_processor.streamPcd("../src/sensors/data/pcd/data_1");
+    auto stream_iterator = stream.begin();
+    pcl::PointCloud<pcl::PointXYZI>::Ptr input_cloud;
+
+    while (!viewer->wasStopped()) {
+        // Clear viewer
+        viewer->removeAllPointClouds();
+        viewer->removeAllShapes();
+
+        // Load pcd and run obstacle detection process
+        input_cloud = point_cloud_processor.loadPcd((*stream_iterator).string());
+        cityBlock(viewer, point_cloud_processor, input_cloud);
+
+        stream_iterator++;
+        // keep looping
+        if(stream_iterator == stream.end())
+            stream_iterator = stream.begin();
+
+        viewer->spinOnce();
     } 
 }
