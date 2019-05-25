@@ -29,7 +29,7 @@ public:
     // Destructor
     ~ProcessPointClouds() = default;
 
-    void numPoints(typename pcl::PointCloud<PointT>::Ptr cloud);
+    void numPoints(const typename pcl::PointCloud<PointT>::Ptr& cloud);
 
     typename pcl::PointCloud<PointT>::Ptr FilterCloud(const typename pcl::PointCloud<PointT>::Ptr& cloud, float filterRes, const Eigen::Vector4f& minPoint, const Eigen::Vector4f& maxPoint);
 
@@ -37,11 +37,11 @@ public:
 
     std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> SegmentPlane(const typename pcl::PointCloud<PointT>::Ptr& cloud, int maxIterations, float distanceThreshold);
 
-    std::vector<typename pcl::PointCloud<PointT>::Ptr> Clustering(typename pcl::PointCloud<PointT>::Ptr cloud, float clusterTolerance, int minSize, int maxSize);
+    std::vector<typename pcl::PointCloud<PointT>::Ptr> Clustering(const typename pcl::PointCloud<PointT>::Ptr& cloud, float clusterTolerance, int minSize, int maxSize);
 
-    Box BoundingBox(typename pcl::PointCloud<PointT>::Ptr cluster);
+    Box BoundingBox(const typename pcl::PointCloud<PointT>::Ptr& cluster);
 
-    void savePcd(typename pcl::PointCloud<PointT>::Ptr cloud, std::string file);
+    void savePcd(const typename pcl::PointCloud<PointT>::Ptr& cloud, std::string file);
 
     typename pcl::PointCloud<PointT>::Ptr loadPcd(std::string file);
 

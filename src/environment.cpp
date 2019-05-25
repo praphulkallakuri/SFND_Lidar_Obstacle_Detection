@@ -55,7 +55,7 @@ void simpleHighway(pcl::visualization::PCLVisualizer::Ptr& viewer) {
 
     // Create point processor
     ProcessPointClouds<pcl::PointXYZ> point_cloud_processor;
-    const int kMaxIterations = 100;
+    constexpr int kMaxIterations = 100;
     constexpr float kDistanceThreshold = 0.2;
     auto segment_cloud = point_cloud_processor.SegmentPlane(input_cloud, kMaxIterations, kDistanceThreshold);
 
@@ -69,10 +69,42 @@ void simpleHighway(pcl::visualization::PCLVisualizer::Ptr& viewer) {
 void cityBlock(pcl::visualization::PCLVisualizer::Ptr& viewer, ProcessPointClouds<pcl::PointXYZI>& point_cloud_processor, pcl::PointCloud<pcl::PointXYZI>::Ptr& input_cloud) {
     // Input point cloud, filter resolution, min Point, max Point
     constexpr float kFilterResolution = 0.25;
-    const Eigen::Vector4f kMinPoint(-80, -15, -5, 1);
-    const Eigen::Vector4f kMaxPoint(80, 15, 5, 1);
+    const Eigen::Vector4f kMinPoint(-50, -10, -5, 1);
+    const Eigen::Vector4f kMaxPoint(100, 10, 5, 1);
     auto filter_cloud = point_cloud_processor.FilterCloud(input_cloud, kFilterResolution, kMinPoint, kMaxPoint);
-    renderPointCloud(viewer, filter_cloud, "InputCloud");
+
+    //    renderPointCloud(viewer, filter_cloud, "FilteredCloud");
+
+    constexpr int kMaxIterations = 100;
+    constexpr float kDistanceThreshold = 0.2;
+    auto segment_cloud = point_cloud_processor.SegmentPlane(filter_cloud, kMaxIterations, kDistanceThreshold);
+
+//    // render obstacles point cloud with red
+//    renderPointCloud(viewer, segment_cloud.first, "ObstacleCloud", Color(1, 0, 0));
+    // render ground plane with green
+    renderPointCloud(viewer, segment_cloud.second, "GroundCloud", Color(0, 1, 0));
+
+
+    /*** Euclidean clustering ***/
+    // float clusterTolerance, int minSize, int maxSize
+    constexpr float kClusterTolerance = 1.0;
+    constexpr int kMinSize = 20;
+    constexpr int kMaxSize = 1000;
+    auto cloud_clusters = point_cloud_processor.Clustering(segment_cloud.first, kClusterTolerance, kMinSize, kMaxSize);
+
+    int cluster_ID = 0;
+    std::vector<Color> colors = {Color(1, 0, 0), Color(0, 1, 0), Color(0, 0, 1)};
+
+    for(const auto& cluster : cloud_clusters) {
+        std::cout << "cluster size ";
+        point_cloud_processor.numPoints(cluster);
+        renderPointCloud(viewer, cluster, "ObstacleCloud" + std::to_string(cluster_ID), colors[cluster_ID]);
+
+        Box box = point_cloud_processor.BoundingBox(cluster);
+        renderBox(viewer, box, cluster_ID);
+
+        cluster_ID++;
+    }
 }
 
 //setAngle: SWITCH CAMERA ANGLE {XY, TopDown, Side, FPS}
