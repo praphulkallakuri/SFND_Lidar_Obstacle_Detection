@@ -82,31 +82,31 @@ struct Lidar
     double resoultion;
     double sderr;
 
-    Lidar(std::vector<Car> setCars, double setGroundSlope)
+    Lidar(const std::vector<Car>& setCars, double setGroundSlope)
             : cloud(new pcl::PointCloud<pcl::PointXYZ>()), position(0,0,2.6)
     {
-        // TODO:: set minDistance to 5 to remove points from roof of ego car
-        minDistance = 0;
+        // Set minDistance to 5 to remove points from roof of ego car
+        minDistance = 5;
         maxDistance = 50;
         resoultion = 0.2;
-        // TODO:: set sderr to 0.2 to get more interesting pcd files
-        sderr = 0.0;
+        // Add noise - set sderr to 0.2 to get more interesting pcd files
+        sderr = 0.2;
         cars = setCars;
         groundSlope = setGroundSlope;
 
-        // TODO:: increase number of layers to 8 to get higher resoultion pcd
-        int numLayers = 3;
+        // Increase number of layers to 8 to get higher resolution pcd
+        int numLayers = 8;
         // the steepest vertical angle
         double steepestAngle =  30.0*(-pi/180);
         double angleRange = 26.0*(pi/180);
-        // TODO:: set to pi/64 to get higher resoultion pcd
-        double horizontalAngleInc = pi/6;
+        // Set to pi/64 to get higher resolution pcd
+        double horizontalAngleInc = pi/64;
 
         double angleIncrement = angleRange/numLayers;
 
-        for(double angleVertical = steepestAngle; angleVertical < steepestAngle+angleRange; angleVertical+=angleIncrement)
+        for(double angleVertical = steepestAngle; angleVertical < steepestAngle+angleRange; angleVertical += angleIncrement)
         {
-            for(double angle = 0; angle <= 2*pi; angle+=horizontalAngleInc)
+            for(double angle = 0; angle <= 2*pi; angle += horizontalAngleInc)
             {
                 Ray ray(position,angle,angleVertical,resoultion);
                 rays.push_back(ray);

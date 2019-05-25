@@ -49,7 +49,7 @@ void simpleHighway(pcl::visualization::PCLVisualizer::Ptr& viewer)
     constexpr double kGroundSlope = 0;
     std::shared_ptr<Lidar> lidar_ptr = std::make_shared<Lidar>(cars, kGroundSlope);
     auto input_cloud = lidar_ptr->scan();
-    renderRays(viewer, lidar_ptr->position, input_cloud);
+//    renderRays(viewer, lidar_ptr->position, input_cloud);
     renderPointCloud(viewer, input_cloud, "InputCloud");
 
     // Create point processor
