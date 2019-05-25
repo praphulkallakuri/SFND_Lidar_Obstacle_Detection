@@ -66,8 +66,13 @@ void simpleHighway(pcl::visualization::PCLVisualizer::Ptr& viewer) {
 }
 
 
-void cityBlock(pcl::visualization::PCLVisualizer::Ptr& viewer, const ProcessPointClouds<pcl::PointXYZI>& point_cloud_processor, const pcl::PointCloud<pcl::PointXYZI>::Ptr& input_cloud) {
-    renderPointCloud(viewer, input_cloud, "InputCloud");
+void cityBlock(pcl::visualization::PCLVisualizer::Ptr& viewer, ProcessPointClouds<pcl::PointXYZI>& point_cloud_processor, pcl::PointCloud<pcl::PointXYZI>::Ptr& input_cloud) {
+    // Input point cloud, filter resolution, min Point, max Point
+    constexpr float kFilterResolution = 0.25;
+    const Eigen::Vector4f kMinPoint(-80, -15, -5, 1);
+    const Eigen::Vector4f kMaxPoint(80, 15, 5, 1);
+    auto filter_cloud = point_cloud_processor.FilterCloud(input_cloud, kFilterResolution, kMinPoint, kMaxPoint);
+    renderPointCloud(viewer, filter_cloud, "InputCloud");
 }
 
 //setAngle: SWITCH CAMERA ANGLE {XY, TopDown, Side, FPS}

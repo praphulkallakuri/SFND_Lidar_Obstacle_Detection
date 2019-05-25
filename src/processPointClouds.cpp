@@ -2,38 +2,59 @@
 
 #include "processPointClouds.h"
 
-
-//constructor:
 template<typename PointT>
-ProcessPointClouds<PointT>::ProcessPointClouds() {}
-
-
-//de-constructor:
-template<typename PointT>
-ProcessPointClouds<PointT>::~ProcessPointClouds() {}
-
-
-template<typename PointT>
-void ProcessPointClouds<PointT>::numPoints(typename pcl::PointCloud<PointT>::Ptr cloud)
-{
+void ProcessPointClouds<PointT>::numPoints(typename pcl::PointCloud<PointT>::Ptr cloud) {
     std::cout << cloud->points.size() << std::endl;
 }
 
 
 template<typename PointT>
-typename pcl::PointCloud<PointT>::Ptr ProcessPointClouds<PointT>::FilterCloud(typename pcl::PointCloud<PointT>::Ptr cloud, float filterRes, Eigen::Vector4f minPoint, Eigen::Vector4f maxPoint)
-{
-
+typename pcl::PointCloud<PointT>::Ptr ProcessPointClouds<PointT>::FilterCloud(const typename pcl::PointCloud<PointT>::Ptr& cloud,
+        float filterRes, const Eigen::Vector4f& minPoint, const Eigen::Vector4f& maxPoint) {
     // Time segmentation process
     auto startTime = std::chrono::steady_clock::now();
 
-    // TODO:: Fill in the function to do voxel grid point reduction and region based filtering
+    /*** Voxel grid point reduction and region based filtering ***/
+
+    typename pcl::PointCloud<PointT>::Ptr filtered_cloud(new pcl::PointCloud<PointT>());
+    // Create the filtering object: down-sample the dataset using a given leaf size
+    pcl::VoxelGrid<PointT> vg;
+    vg.setInputCloud(cloud);
+    vg.setLeafSize(filterRes, filterRes, filterRes);
+    vg.filter(*filtered_cloud);
+
+    // Filter point cloud that is out of region of interest
+    pcl::CropBox<PointT> region(true);
+    region.setMin(minPoint);
+    region.setMax(maxPoint);
+    region.setInputCloud(filtered_cloud);
+    region.filter(*filtered_cloud);
+
+    std::vector<int> indices;
+    // Filter point cloud on the roof of host vehicle
+    region.setMin(Eigen::Vector4f(-1.5, -1.7, -1, 1));
+    region.setMax(Eigen::Vector4f(2.6, 1.7, -0.4, 1));
+    region.setInputCloud(filtered_cloud);
+    region.filter(indices);
+
+    pcl::PointIndices::Ptr inliers(new pcl::PointIndices());
+    for (int index : indices) {
+        inliers->indices.push_back(index);
+    }
+
+    // Create the filtering object
+    pcl::ExtractIndices<PointT> extract;
+    // Extract the point cloud on roof
+    extract.setInputCloud(filtered_cloud);
+    extract.setIndices(inliers);
+    extract.setNegative(true);
+    extract.filter(*filtered_cloud);
 
     auto endTime = std::chrono::steady_clock::now();
     auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
     std::cout << "filtering took " << elapsedTime.count() << " milliseconds" << std::endl;
 
-    return cloud;
+    return filtered_cloud;
 
 }
 
@@ -65,8 +86,7 @@ std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT
 
 // Use the pair object to hold your segmented results for the obstacle point cloud and the road point cloud
 template<typename PointT>
-std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> ProcessPointClouds<PointT>::SegmentPlane(const typename pcl::PointCloud<PointT>::Ptr& cloud, int maxIterations, float distanceThreshold)
-{
+std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> ProcessPointClouds<PointT>::SegmentPlane(const typename pcl::PointCloud<PointT>::Ptr& cloud, int maxIterations, float distanceThreshold) {
     // Time segmentation process
     auto startTime = std::chrono::steady_clock::now();
 
@@ -101,9 +121,7 @@ std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT
 
 
 template<typename PointT>
-std::vector<typename pcl::PointCloud<PointT>::Ptr> ProcessPointClouds<PointT>::Clustering(typename pcl::PointCloud<PointT>::Ptr cloud, float clusterTolerance, int minSize, int maxSize)
-{
-
+std::vector<typename pcl::PointCloud<PointT>::Ptr> ProcessPointClouds<PointT>::Clustering(typename pcl::PointCloud<PointT>::Ptr cloud, float clusterTolerance, int minSize, int maxSize) {
     // Time clustering process
     auto startTime = std::chrono::steady_clock::now();
 
@@ -140,10 +158,9 @@ Box ProcessPointClouds<PointT>::BoundingBox(typename pcl::PointCloud<PointT>::Pt
 
 
 template<typename PointT>
-void ProcessPointClouds<PointT>::savePcd(typename pcl::PointCloud<PointT>::Ptr cloud, std::string file)
-{
-    pcl::io::savePCDFileASCII (file, *cloud);
-    std::cerr << "Saved " << cloud->points.size () << " data points to "+file << std::endl;
+void ProcessPointClouds<PointT>::savePcd(typename pcl::PointCloud<PointT>::Ptr cloud, std::string file) {
+    pcl::io::savePCDFileASCII(file, *cloud);
+    std::cout << "Saved " << cloud->points.size () << " data points to " + file << std::endl;
 }
 
 

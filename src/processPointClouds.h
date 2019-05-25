@@ -23,14 +23,15 @@ template<typename PointT>
 class ProcessPointClouds {
 public:
 
-    //constructor
-    ProcessPointClouds();
-    //deconstructor
-    ~ProcessPointClouds();
+    // Constructor
+    ProcessPointClouds() = default;
+
+    // Destructor
+    ~ProcessPointClouds() = default;
 
     void numPoints(typename pcl::PointCloud<PointT>::Ptr cloud);
 
-    typename pcl::PointCloud<PointT>::Ptr FilterCloud(typename pcl::PointCloud<PointT>::Ptr cloud, float filterRes, Eigen::Vector4f minPoint, Eigen::Vector4f maxPoint);
+    typename pcl::PointCloud<PointT>::Ptr FilterCloud(const typename pcl::PointCloud<PointT>::Ptr& cloud, float filterRes, const Eigen::Vector4f& minPoint, const Eigen::Vector4f& maxPoint);
 
     std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> SeparateClouds(const pcl::PointIndices::Ptr& inliers, const typename pcl::PointCloud<PointT>::Ptr& cloud);
 
