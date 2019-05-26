@@ -50,8 +50,6 @@ void simpleHighway(pcl::visualization::PCLVisualizer::Ptr& viewer) {
     constexpr double kGroundSlope = 0;
     std::shared_ptr<Lidar> lidar_ptr = std::make_shared<Lidar>(cars, kGroundSlope);
     auto input_cloud = lidar_ptr->scan();
-//    renderRays(viewer, lidar_ptr->position, input_cloud);
-//    renderPointCloud(viewer, input_cloud, "InputCloud");
 
     // Create point processor
     ProcessPointClouds<pcl::PointXYZ> point_cloud_processor;
@@ -132,32 +130,34 @@ int main (int argc, char** argv) {
     std::cout << "starting environment" << std::endl;
 
     pcl::visualization::PCLVisualizer::Ptr viewer(new pcl::visualization::PCLVisualizer ("3D Viewer"));
-    CameraAngle setAngle = XY;
+    CameraAngle setAngle = TopDown;
     initCamera(setAngle, viewer);
-//    simpleHighway(viewer);
+
+    simpleHighway(viewer);
+    while (!viewer->wasStopped()) {
+        viewer->spinOnce();
+    }
+
+//    ProcessPointClouds<pcl::PointXYZI> point_cloud_processor;
+//    std::vector<boost::filesystem::path> stream = point_cloud_processor.streamPcd("../src/sensors/data/pcd/data_1");
+//    auto stream_iterator = stream.begin();
+//    pcl::PointCloud<pcl::PointXYZI>::Ptr input_cloud;
+//
 //    while (!viewer->wasStopped()) {
+//        // Clear viewer
+//        viewer->removeAllPointClouds();
+//        viewer->removeAllShapes();
+//
+//        // Load pcd and run obstacle detection process
+//        input_cloud = point_cloud_processor.loadPcd((*stream_iterator).string());
+//        cityBlock(viewer, point_cloud_processor, input_cloud);
+//
+//        stream_iterator++;
+//        // keep looping
+//        if(stream_iterator == stream.end())
+//            stream_iterator = stream.begin();
+//
+//        // viewer spin
 //        viewer->spinOnce();
 //    }
-
-    ProcessPointClouds<pcl::PointXYZI> point_cloud_processor;
-    std::vector<boost::filesystem::path> stream = point_cloud_processor.streamPcd("../src/sensors/data/pcd/data_1");
-    auto stream_iterator = stream.begin();
-    pcl::PointCloud<pcl::PointXYZI>::Ptr input_cloud;
-
-    while (!viewer->wasStopped()) {
-        // Clear viewer
-        viewer->removeAllPointClouds();
-        viewer->removeAllShapes();
-
-        // Load pcd and run obstacle detection process
-        input_cloud = point_cloud_processor.loadPcd((*stream_iterator).string());
-        cityBlock(viewer, point_cloud_processor, input_cloud);
-
-        stream_iterator++;
-        // keep looping
-        if(stream_iterator == stream.end())
-            stream_iterator = stream.begin();
-
-        viewer->spinOnce();
-    } 
 }
