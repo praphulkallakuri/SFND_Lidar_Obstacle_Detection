@@ -84,6 +84,76 @@ std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT
 }
 
 
+template<typename PointT>
+std::unordered_set<int> ProcessPointClouds<PointT>::RansacPlane(const typename pcl::PointCloud<PointT>::Ptr& cloud, int maxIterations, float distanceTol) {
+    std::unordered_set<int> inliersResult;
+
+    // Will be used to obtain a seed for the random number engine
+    std::random_device rd;
+    //Standard mersenne_twister_engine seeded with rd()
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dis(0 , cloud->points.size());
+
+    // For max iterations
+    for (int i = 0; i < maxIterations; i++) {
+        // Randomly sample subset and fit line
+        std::unordered_set<int> inliers;
+
+        constexpr int kDimension = 3;
+        float x[kDimension], y[kDimension], z[kDimension];
+        int j = 0;
+        // avoid picking the same point twice
+        while(inliers.size() < kDimension) {
+            auto index = dis(gen);
+            x[j] = cloud->points[index].x;
+            y[j] = cloud->points[index].y;
+            z[j] = cloud->points[index].z;
+
+            if (0 == inliers.count(index)) {
+                inliers.insert(index);
+                j++;
+            }
+        }
+
+        // Two vectors on the plane
+        float v0[3] = {x[1] - x[0], y[1] - y[0], z[1] - z[0]};
+        float v1[3] = {x[2] - x[0], y[2] - y[0], z[2] - z[0]};
+        // Cross product v0 x v1
+        float a = v0[1] * v1[2] - v0[2] * v1[1];
+        float b = v0[2] * v1[0] - v0[0] * v1[2];
+        float c = v0[0] * v1[1] - v0[1] * v1[0];
+        float d = -(a * x[0] + b * y[0] + c * z[0]);
+        // A constant number that will be used multiple times in following calculation
+        auto d2 = sqrt(a*a + b*b + c*c);
+
+        // Measure distance between every point and fitted line
+        for (int index = 0; index < cloud->points.size(); index++) {
+            if (inliers.count(index) > 0) {
+                continue;
+            }
+
+            auto point = cloud->points[index];
+            float x0 = point.x;
+            float y0 = point.y;
+            float z0 = point.z;
+
+            float distance = fabs(a*x0 + b*y0 + c*z0 + d) / d2;
+            // If distance is smaller than threshold count it as inlier
+            if (distance <= distanceTol) {
+                inliers.insert(index);
+            }
+        }
+
+        // Return indices of inliers from fitted line with most inliers
+        if (inliers.size() > inliersResult.size()) {
+            inliersResult = inliers;
+        }
+    }
+
+    return inliersResult;
+}
+
+
 // Use the pair object to hold your segmented results for the obstacle point cloud and the road point cloud
 template<typename PointT>
 std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> ProcessPointClouds<PointT>::SegmentPlane(const typename pcl::PointCloud<PointT>::Ptr& cloud, int maxIterations, float distanceThreshold) {
@@ -91,22 +161,36 @@ std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT
     auto startTime = std::chrono::steady_clock::now();
 
 	/*** Find inliers for the cloud. ***/
-    // Create the segmentation object
-    pcl::SACSegmentation<PointT> seg;
+
+//    /*** PCL IMPLEMENTATION START ***/
+//	// Create the segmentation object
+//    pcl::SACSegmentation<PointT> seg;
+//    pcl::PointIndices::Ptr inliers(new pcl::PointIndices());
+//    pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients());
+//
+//    // Optional
+//    seg.setOptimizeCoefficients(true);
+//    // Mandatory
+//    seg.setModelType(pcl::SACMODEL_PLANE);
+//    seg.setMethodType(pcl::SAC_RANSAC);
+//    seg.setMaxIterations(maxIterations);
+//    seg.setDistanceThreshold(distanceThreshold);
+//
+//    // Segment the largest planar component from the input cloud
+//    seg.setInputCloud(cloud);
+//    seg.segment(*inliers, *coefficients);
+//
+//    /*** PCL IMPLEMENTATION END ***/
+
+    /*** STUDENT IMPLEMENTATION START ***/
+    std::unordered_set<int> inliers_set = RansacPlane(cloud, maxIterations, distanceThreshold);
     pcl::PointIndices::Ptr inliers(new pcl::PointIndices());
-    pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients());
+    for (auto i : inliers_set) {
+        inliers->indices.push_back(i);
+    }
 
-    // Optional
-    seg.setOptimizeCoefficients(true);
-    // Mandatory
-    seg.setModelType(pcl::SACMODEL_PLANE);
-    seg.setMethodType(pcl::SAC_RANSAC);
-    seg.setMaxIterations(maxIterations);
-    seg.setDistanceThreshold(distanceThreshold);
+    /*** STUDENT IMPLEMENTATION END ***/
 
-    // Segment the largest planar component from the input cloud
-    seg.setInputCloud(cloud);
-    seg.segment(*inliers, *coefficients);
     if (inliers->indices.empty()) {
         std::cerr << "Could not estimate a planar model for the given dataset" << std::endl;
     }
