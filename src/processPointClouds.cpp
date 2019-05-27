@@ -218,15 +218,13 @@ std::vector<typename pcl::PointCloud<PointT>::Ptr> ProcessPointClouds<PointT>::C
 
     std::vector<pcl::PointIndices> cluster_indices;
     pcl::EuclideanClusterExtraction<PointT> ec;
-    ec.setClusterTolerance(clusterTolerance); // 2cm
+    ec.setClusterTolerance(clusterTolerance);
     ec.setMinClusterSize(minSize);
     ec.setMaxClusterSize(maxSize);
     ec.setSearchMethod(tree);
     ec.setInputCloud(cloud);
     ec.extract(cluster_indices);
 
-
-    // TODO: compare with DBSCAN
     for (const auto& get_indices : cluster_indices) {
         typename pcl::PointCloud<PointT>::Ptr cloud_cluster (new pcl::PointCloud<PointT>());
 
