@@ -68,7 +68,7 @@ void cityBlock(pcl::visualization::PCLVisualizer::Ptr& viewer, ProcessPointCloud
     // Input point cloud, filter resolution, min Point, max Point
     constexpr float kFilterResolution = 0.2;
     const Eigen::Vector4f kMinPoint(-50, -6.0, -3, 1);
-    const Eigen::Vector4f kMaxPoint(50, 6.5, 4, 1);
+    const Eigen::Vector4f kMaxPoint(60, 6.5, 4, 1);
     auto filter_cloud = point_cloud_processor.FilterCloud(input_cloud, kFilterResolution, kMinPoint, kMaxPoint);
 
 //    renderPointCloud(viewer, filter_cloud, "FilteredCloud");
@@ -97,7 +97,7 @@ void cityBlock(pcl::visualization::PCLVisualizer::Ptr& viewer, ProcessPointCloud
     Box host_box = {-1.5, -1.7, -1, 2.6, 1.7, -0.4};
     renderBox(viewer, host_box, 0, Color(0.5, 0, 1), 0.8);
 
-    constexpr float kBBoxMinHeight = 0.5;
+    constexpr float kBBoxMinHeight = 0.75;
     for(const auto& cluster : cloud_clusters) {
         std::cout << "cluster size ";
         point_cloud_processor.numPoints(cluster);
@@ -105,7 +105,8 @@ void cityBlock(pcl::visualization::PCLVisualizer::Ptr& viewer, ProcessPointCloud
         renderPointCloud(viewer, cluster, "ObstacleCloud" + std::to_string(cluster_ID), colors[cluster_ID % num_of_colors]);
 
         Box box = point_cloud_processor.BoundingBox(cluster);
-        if (box.z_max - box.z_min >= kBBoxMinHeight) {
+        // Filter out some cluster with little points and shorter in height
+        if (box.z_max - box.z_min >= kBBoxMinHeight || cluster->points.size() >= kMinSize * 2) {
             renderBox(viewer, box, cluster_ID);
         }
 
