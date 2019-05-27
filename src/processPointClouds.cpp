@@ -205,30 +205,90 @@ std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT
 
 
 template<typename PointT>
+void ProcessPointClouds<PointT>::clusterHelper(int index, const std::vector<std::vector<float>>& points, std::vector<int>& cluster, std::vector<bool>& processed, KdTree* tree, float distanceTol) {
+    processed[index] = true;
+    cluster.push_back(index);
+
+    std::vector<int> nearest = tree->search(points[index], distanceTol);
+
+    for (int id : nearest) {
+        if (!processed[id]) {
+            clusterHelper(id, points, cluster, processed, tree, distanceTol);
+        }
+    }
+}
+
+
+template<typename PointT>
+std::vector<std::vector<int>> ProcessPointClouds<PointT>::euclideanCluster(const std::vector<std::vector<float>>& points, KdTree* tree, float distanceTol) {
+
+    std::vector<std::vector<int>> clusters;
+
+    std::vector<bool> processed(points.size(), false);
+
+    int i = 0;
+    while (i < points.size()) {
+        if (processed[i]) {
+            i++;
+            continue;
+        }
+
+        std::vector<int> cluster;
+        clusterHelper(i, points, cluster, processed, tree, distanceTol);
+        clusters.push_back(cluster);
+        i++;
+    }
+
+
+    // Return list of indices for each cluster
+    return clusters;
+
+}
+
+
+
+template<typename PointT>
 std::vector<typename pcl::PointCloud<PointT>::Ptr> ProcessPointClouds<PointT>::Clustering(const typename pcl::PointCloud<PointT>::Ptr& cloud, float clusterTolerance, int minSize, int maxSize) {
     // Time clustering process
     auto startTime = std::chrono::steady_clock::now();
-
     std::vector<typename pcl::PointCloud<PointT>::Ptr> clusters;
-
     /*** Perform euclidean clustering to group detected obstacles ***/
-    // Creating the KdTree object for the search method of the extraction
-    typename pcl::search::KdTree<PointT>::Ptr tree(new pcl::search::KdTree<PointT>());
-    tree->setInputCloud(cloud);
 
-    std::vector<pcl::PointIndices> cluster_indices;
-    pcl::EuclideanClusterExtraction<PointT> ec;
-    ec.setClusterTolerance(clusterTolerance);
-    ec.setMinClusterSize(minSize);
-    ec.setMaxClusterSize(maxSize);
-    ec.setSearchMethod(tree);
-    ec.setInputCloud(cloud);
-    ec.extract(cluster_indices);
+//    /*** PCL IMPLEMENTATION START ***/
+//    // Creating the KdTree object for the search method of the extraction
+//    typename pcl::search::KdTree<PointT>::Ptr tree(new pcl::search::KdTree<PointT>());
+//    tree->setInputCloud(cloud);
+//
+//    std::vector<pcl::PointIndices> cluster_indices;
+//    pcl::EuclideanClusterExtraction<PointT> ec;
+//    ec.setClusterTolerance(clusterTolerance);
+//    ec.setMinClusterSize(minSize);
+//    ec.setMaxClusterSize(maxSize);
+//    ec.setSearchMethod(tree);
+//    ec.setInputCloud(cloud);
+//    ec.extract(cluster_indices);
+//
+//    /*** PCL IMPLEMENTATION END ***/
+
+    /*** STUDENT IMPLEMENTATION START ***/
+    auto* tree = new KdTree;
+
+    std::vector<std::vector<float>> points;
+    for (int i=0; i< cloud->points.size(); i++) {
+        std::vector<float> point({cloud->points[i].x, cloud->points[i].y, cloud->points[i].z});
+        points.push_back(point);
+        tree->insert(points[i], i);
+    }
+
+    std::vector<std::vector<int>> cluster_indices = euclideanCluster(points, tree, clusterTolerance);
+    /*** STUDENT IMPLEMENTATION END ***/
+
 
     for (const auto& get_indices : cluster_indices) {
-        typename pcl::PointCloud<PointT>::Ptr cloud_cluster (new pcl::PointCloud<PointT>());
+        typename pcl::PointCloud<PointT>::Ptr cloud_cluster(new pcl::PointCloud<PointT>());
 
-        for (const auto index : get_indices.indices) {
+//        for (const auto index : get_indices.indices) {
+        for (const auto index : get_indices) {
             cloud_cluster->points.push_back(cloud->points[index]);
         }
 
@@ -236,7 +296,9 @@ std::vector<typename pcl::PointCloud<PointT>::Ptr> ProcessPointClouds<PointT>::C
         cloud_cluster->height = 1;
         cloud_cluster->is_dense = true;
 
-        clusters.push_back(cloud_cluster);
+        if (cloud_cluster->width >= minSize && cloud_cluster->width <= maxSize) {
+            clusters.push_back(cloud_cluster);
+        }
     }
 
     auto endTime = std::chrono::steady_clock::now();
